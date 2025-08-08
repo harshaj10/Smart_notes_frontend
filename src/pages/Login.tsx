@@ -139,7 +139,7 @@ const Login: React.FC = () => {
                   <Grow in={isLoaded} timeout={1000}>
                     <img 
                       src={loginIllustration} 
-                      alt="Smart Notes" 
+                      alt="THINKSYNC.AI" 
                       style={{ maxWidth: '180px', marginBottom: '1rem' }} 
                     />
                   </Grow>
@@ -156,7 +156,7 @@ const Login: React.FC = () => {
                       WebkitTextFillColor: 'transparent',
                     }}
                   >
-                    Smart Notes
+                    THINKSYNC.AI
                   </Typography>
                   <Typography variant="h6" color="text.secondary" gutterBottom>
                     Capture your thoughts, organize your life
@@ -210,7 +210,7 @@ const Login: React.FC = () => {
                     Welcome Back
                   </Typography>
                   <Typography variant="body1" color="text.secondary">
-                    Sign in to continue to Smart Notes
+                    Sign in to continue to THINKSYNC.AI
                   </Typography>
                 </Box>
 
@@ -281,7 +281,7 @@ const Login: React.FC = () => {
         
         <Box sx={{ mt: 4, textAlign: 'center', zIndex: 1, position: 'relative' }}>
           <Typography variant="body2" color="text.secondary">
-            © 2025 Smart Notes. All rights reserved.
+            © 2025 THINKSYNC.AI. All rights reserved.
           </Typography>
         </Box>
       </Container>

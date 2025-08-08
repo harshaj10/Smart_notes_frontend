@@ -75,13 +75,13 @@ const AppLogo = () => {
     <Stack direction="row" alignItems="center" spacing={1}>
       <BorderColorIcon sx={{ fontSize: '1.8rem', color: 'white' }} />
       <Typography variant="h6" fontWeight="bold" sx={{ letterSpacing: '0.5px' }}>
-        Smart Notes
+        THINKSYNC.AI
       </Typography>
     </Stack>
   );
 };
 
-const Layout = ({ children, title = 'Smart Notes' }: LayoutProps) => {
+const Layout = ({ children, title = 'THINKSYNC.AI' }: LayoutProps) => {
   const theme = useTheme();
   const { userProfile, signOut } = useAuth();
   const navigate = useNavigate();
