@@ -36,7 +36,9 @@ import {
   Stop as StopIcon,
   Lightbulb as LightbulbIcon,
   AutoAwesome as AutoAwesomeIcon,
-  Title as TitleIcon
+  Title as TitleIcon,
+  Download as DownloadIcon,
+  PictureAsPdf as PdfIcon
 } from '@mui/icons-material';
 import { EditorState, ContentState, convertToRaw, Modifier, SelectionState } from 'draft-js';
 import { Editor } from 'react-draft-wysiwyg';
@@ -50,6 +52,7 @@ import { useNotes, NoteVersion } from '../contexts/NotesContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getSocket } from '../services/socket';
 import aiService, { AISuggestion } from '../services/ai';
+import PDFService from '../services/pdf';
 
 const NoteEditor: React.FC = () => {
   const { noteId } = useParams();
@@ -753,6 +756,47 @@ const NoteEditor: React.FC = () => {
                     disabled={loading || isNewNote || (currentNote?.createdBy !== userProfile?.id)}
                   >
                     <DeleteIcon />
+                  </IconButton>
+                </Tooltip>
+                
+                {/* New PDF Download button */}
+                <Tooltip title="Download PDF">
+                  <IconButton
+                    onClick={async () => {
+                      if (currentNote && title) {
+                        try {
+                          // Show loading indicator
+                          setIsSaving(true);
+                          
+                          // Get current content as HTML
+                          const contentState = editorState.getCurrentContent();
+                          const htmlContent = draftToHtml(convertToRaw(contentState));
+                          
+                          // Prepare PDF options
+                          const pdfOptions = {
+                            title: title,
+                            content: htmlContent,
+                            author: currentNote.creator?.displayName || userProfile?.displayName || 'Unknown Author',
+                            createdAt: currentNote.createdAt
+                          };
+                          
+                          // Generate PDF using the rich format method for better appearance
+                          await PDFService.generateRichFormatPDF(pdfOptions);
+                          
+                          setSnackbarMessage('PDF downloaded successfully!');
+                          setSnackbarOpen(true);
+                        } catch (err) {
+                          console.error('Error downloading PDF:', err);
+                          setSnackbarMessage('Failed to download PDF. Please try again.');
+                          setSnackbarOpen(true);
+                        } finally {
+                          setIsSaving(false);
+                        }
+                      }
+                    }}
+                    disabled={loading || isNewNote || !title}
+                  >
+                    <PdfIcon />
                   </IconButton>
                 </Tooltip>
               </>
