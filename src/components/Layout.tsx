@@ -199,7 +199,7 @@ const Layout = ({ children, title = 'THINKSYNC.AI' }: LayoutProps) => {
                 
                 <Tooltip title="Notifications">
                   <IconButton color="inherit" sx={{ mr: 1 }}>
-                    <Badge badgeContent={3} color="error">
+                    <Badge badgeContent={0} color="error">
                       <NotificationsIcon />
                     </Badge>
                   </IconButton>
@@ -426,7 +426,7 @@ const Layout = ({ children, title = 'THINKSYNC.AI' }: LayoutProps) => {
                     />
                     {item.text === 'Shared Notes' && (
                       <Chip 
-                        label="3" 
+                        label="0" 
                         size="small" 
                         color="primary" 
                         sx={{ 

@@ -37,7 +37,8 @@ import {
   Lightbulb as LightbulbIcon,
   AutoAwesome as AutoAwesomeIcon,
   Title as TitleIcon,
-  PictureAsPdf as PdfIcon
+  PictureAsPdf as PdfIcon,
+  EditNote as AutoCorrectIcon
 } from '@mui/icons-material';
 import { EditorState, ContentState, convertToRaw, Modifier, SelectionState } from 'draft-js';
 import { Editor } from 'react-draft-wysiwyg';
@@ -52,6 +53,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getSocket } from '../services/socket';
 import aiService, { AISuggestion } from '../services/ai';
 import PDFService from '../services/pdf';
+import AutocorrectionService from '../services/autocorrection';
 
 // Add speech recognition type declarations
 
@@ -91,6 +93,9 @@ const NoteEditor: React.FC = () => {
   const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(true);
   
+  // Autocorrection state
+  const [autocorrectionEnabled, setAutocorrectionEnabled] = useState(AutocorrectionService.isEnabled());
+  
   // AI menu and actions state
   const [aiMenuAnchorEl, setAiMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [aiActionLoading, setAiActionLoading] = useState<boolean>(false);
@@ -103,7 +108,8 @@ const NoteEditor: React.FC = () => {
   
   // Flag to prevent loops when applying remote updates
   const isApplyingRemoteUpdateRef = useRef<boolean>(false);
-  
+  const lastCorrectedWordRef = useRef<string>('');
+
   // Insert text at cursor function
   const insertTextAtCursor = useCallback((text: string) => {
     const contentState = editorState.getCurrentContent();
@@ -299,6 +305,83 @@ const NoteEditor: React.FC = () => {
     }
   };
   
+  // Apply autocorrection to the current word
+  const applyAutocorrection = useCallback(() => {
+    if (!autocorrectionEnabled || isApplyingRemoteUpdateRef.current) return;
+
+    const contentState = editorState.getCurrentContent();
+    const selection = editorState.getSelection();
+    const currentBlock = contentState.getBlockForKey(selection.getStartKey());
+    const blockText = currentBlock.getText();
+    const cursorPosition = selection.getStartOffset();
+
+    // Get the last word at cursor position
+    const wordInfo = AutocorrectionService.getLastWord(blockText, cursorPosition);
+    
+    if (!wordInfo.word || wordInfo.word.length < 2) return;
+
+    // Check if this word needs correction
+    if (AutocorrectionService.needsCorrection(wordInfo.word)) {
+      const correctedWord = AutocorrectionService.getCorrection(wordInfo.word);
+      
+      // Avoid correcting the same word multiple times
+      if (correctedWord !== wordInfo.word && correctedWord !== lastCorrectedWordRef.current) {
+        lastCorrectedWordRef.current = correctedWord;
+        
+        // Create selection for the word to be replaced
+        const wordSelection = SelectionState.createEmpty(currentBlock.getKey()).merge({
+          anchorOffset: wordInfo.startPos,
+          focusOffset: wordInfo.endPos,
+        });
+
+        // Replace the word with the corrected version
+        const newContentState = Modifier.replaceText(
+          contentState,
+          wordSelection,
+          correctedWord
+        );
+
+        const newEditorState = EditorState.push(
+          editorState,
+          newContentState,
+          'insert-characters'
+        );
+
+        // Move cursor to the end of the corrected word
+        const finalSelection = SelectionState.createEmpty(currentBlock.getKey()).merge({
+          anchorOffset: wordInfo.startPos + correctedWord.length,
+          focusOffset: wordInfo.startPos + correctedWord.length,
+        });
+
+        const finalEditorState = EditorState.forceSelection(newEditorState, finalSelection);
+        setEditorState(finalEditorState);
+
+        // Update the content in the backend if we have a valid note
+        if (currentNote && currentNote.id) {
+          const htmlContent = draftToHtml(convertToRaw(newContentState));
+          updateNoteContent(currentNote.id, htmlContent);
+        }
+
+        // Show correction notification
+        setSnackbarMessage(`Corrected "${wordInfo.word}" to "${correctedWord}"`);
+        setSnackbarOpen(true);
+      }
+    }
+  }, [editorState, autocorrectionEnabled, currentNote, updateNoteContent]);
+
+  // Handle key press events for autocorrection
+  const handleKeyPress = useCallback((event: any) => {
+    if (!autocorrectionEnabled) return;
+
+    // Trigger autocorrection on space, tab, enter, or punctuation
+    if (event.key === ' ' || event.key === 'Tab' || event.key === 'Enter' || 
+        /[.,!?;:]/.test(event.key)) {
+      setTimeout(() => {
+        applyAutocorrection();
+      }, 10); // Small delay to ensure the character is inserted first
+    }
+  }, [autocorrectionEnabled, applyAutocorrection]);
+  
   const handleEditorChange = useCallback((editorState: EditorState) => {
     if (isApplyingRemoteUpdateRef.current) return;
     
@@ -404,6 +487,16 @@ const NoteEditor: React.FC = () => {
     },
   };
   
+  // Toggle autocorrection on/off
+  const handleToggleAutocorrection = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const enabled = event.target.checked;
+    setAutocorrectionEnabled(enabled);
+    AutocorrectionService.setEnabled(enabled);
+    
+    setSnackbarMessage(enabled ? 'Autocorrection enabled' : 'Autocorrection disabled');
+    setSnackbarOpen(true);
+  };
+
   // Toggle AI suggestions on/off
   const handleToggleAI = (event: React.ChangeEvent<HTMLInputElement>) => {
     setAiEnabled(event.target.checked);
@@ -647,6 +740,24 @@ const NoteEditor: React.FC = () => {
                 <FormControlLabel
                   control={
                     <Switch
+                      checked={autocorrectionEnabled}
+                      onChange={handleToggleAutocorrection}
+                      color="secondary"
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <AutoCorrectIcon sx={{ fontSize: 16, mr: 0.5 }} />
+                      <Typography variant="body2">AutoCorrect</Typography>
+                    </Box>
+                  }
+                  sx={{ mr: 2 }}
+                />
+
+                <FormControlLabel
+                  control={
+                    <Switch
                       checked={aiEnabled}
                       onChange={handleToggleAI}
                       color="primary"
@@ -827,7 +938,15 @@ const NoteEditor: React.FC = () => {
                 sx={{ mb: 2 }}
               />
               
-              <Box sx={{ height: '500px', mb: 2, border: '1px solid #ddd', borderRadius: '4px', position: 'relative' }}>
+              <Box 
+                sx={{ height: '500px', mb: 2, border: '1px solid #ddd', borderRadius: '4px', position: 'relative' }}
+                onKeyDown={(e) => {
+                  // Handle autocorrection key events
+                  if (autocorrectionEnabled && canEdit) {
+                    handleKeyPress(e);
+                  }
+                }}
+              >
                 {/* AI Suggestions Component */}
                 {canEdit && aiEnabled && (
                   <AISuggestions
