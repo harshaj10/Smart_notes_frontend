@@ -720,6 +720,7 @@ const NoteEditor: React.FC = () => {
                   <IconButton 
                     onClick={handleDelete} 
                     disabled={loading || isNewNote || (currentNote?.createdBy !== userProfile?.id)}
+                    sx={{ color: '#f44336' }}
                   >
                     <DeleteIcon />
                   </IconButton>

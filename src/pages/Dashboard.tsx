@@ -344,7 +344,16 @@ const Dashboard: React.FC<DashboardProps> = ({ initialTab = 0 }) => {
 
   return (
     <Layout title="Dashboard">
-      <Container className="dashboard-container">
+      <Container 
+        className="dashboard-container"
+        maxWidth="xl"
+        sx={{
+          width: '100%',
+          maxWidth: '1400px',
+          mx: 'auto',
+          px: { xs: 2, sm: 3, md: 4 }
+        }}
+      >
         <Fade in={isLoaded} timeout={300}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
