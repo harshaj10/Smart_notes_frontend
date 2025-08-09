@@ -111,7 +111,16 @@ const NoteEditor: React.FC = () => {
   const lastCorrectedWordRef = useRef<string>('');
   const isUserTypingRef = useRef<boolean>(false);
   const lastLocalContentRef = useRef<string>('');
-
+  
+  // Debounced content update to reduce backend calls
+  const debouncedUpdateContent = useRef(
+    debounce((noteId: string, content: string) => {
+      if (noteId && noteId !== 'new') {
+        updateNoteContent(noteId, content);
+      }
+    }, 500) // Only update backend every 500ms instead of every keystroke
+  ).current;
+  
   // Insert text at cursor function
   const insertTextAtCursor = useCallback((text: string) => {
     const contentState = editorState.getCurrentContent();
@@ -791,15 +800,15 @@ const NoteEditor: React.FC = () => {
     // Clear the typing flag after a delay
     setTimeout(() => {
       isUserTypingRef.current = false;
-    }, 1000);
+    }, 2000); // Increased delay to ensure typing detection works properly
     
     // Store the current content to compare against external updates
     const contentState = newEditorState.getCurrentContent();
     const htmlContent = draftToHtml(convertToRaw(contentState));
     lastLocalContentRef.current = htmlContent;
     
-    // Check if autocorrection should be triggered
-    if (autocorrectionEnabled && canEdit) {
+    // Check if autocorrection should be triggered (but temporarily disable to avoid conflicts)
+    if (false && autocorrectionEnabled && canEdit) {
       const currentContentState = editorState.getCurrentContent();
       const newContentState = newEditorState.getCurrentContent();
       
@@ -825,10 +834,11 @@ const NoteEditor: React.FC = () => {
     
     setEditorState(newEditorState);
     
+    // Use debounced update instead of immediate update to prevent constant backend calls
     if (currentNote && currentNote.id) {
-      updateNoteContent(currentNote.id, htmlContent);
+      debouncedUpdateContent(currentNote.id, htmlContent);
     }
-  }, [editorState, autocorrectionEnabled, canEdit, currentNote, updateNoteContent, applyAutocorrectionToEditorState]);
+  }, [editorState, autocorrectionEnabled, canEdit, currentNote, debouncedUpdateContent, applyAutocorrectionToEditorState]);
 
   
   // Handle stop recording
