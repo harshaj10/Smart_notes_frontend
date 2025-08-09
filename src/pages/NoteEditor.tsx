@@ -109,6 +109,8 @@ const NoteEditor: React.FC = () => {
   // Flag to prevent loops when applying remote updates
   const isApplyingRemoteUpdateRef = useRef<boolean>(false);
   const lastCorrectedWordRef = useRef<string>('');
+  const isUserTypingRef = useRef<boolean>(false);
+  const lastLocalContentRef = useRef<string>('');
 
   // Insert text at cursor function
   const insertTextAtCursor = useCallback((text: string) => {
@@ -285,7 +287,15 @@ const NoteEditor: React.FC = () => {
     if (currentNote) {
       setTitle(currentNote.title);
       
-      if (currentNote.content && !isApplyingRemoteUpdateRef.current) {
+      // Only update editor state if:
+      // 1. User is not currently typing/editing
+      // 2. Not applying remote updates
+      // 3. Content actually changed from external source
+      if (currentNote.content && 
+          !isApplyingRemoteUpdateRef.current && 
+          !isUserTypingRef.current &&
+          currentNote.content !== lastLocalContentRef.current) {
+        
         const contentBlock = htmlToDraft(currentNote.content);
         if (contentBlock) {
           const contentState = ContentState.createFromBlockArray(contentBlock.contentBlocks);
@@ -775,6 +785,19 @@ const NoteEditor: React.FC = () => {
   const handleEditorChange = useCallback((newEditorState: EditorState) => {
     if (isApplyingRemoteUpdateRef.current) return;
     
+    // Mark that user is actively typing
+    isUserTypingRef.current = true;
+    
+    // Clear the typing flag after a delay
+    setTimeout(() => {
+      isUserTypingRef.current = false;
+    }, 1000);
+    
+    // Store the current content to compare against external updates
+    const contentState = newEditorState.getCurrentContent();
+    const htmlContent = draftToHtml(convertToRaw(contentState));
+    lastLocalContentRef.current = htmlContent;
+    
     // Check if autocorrection should be triggered
     if (autocorrectionEnabled && canEdit) {
       const currentContentState = editorState.getCurrentContent();
@@ -801,9 +824,6 @@ const NoteEditor: React.FC = () => {
     }
     
     setEditorState(newEditorState);
-    
-    const contentState = newEditorState.getCurrentContent();
-    const htmlContent = draftToHtml(convertToRaw(contentState));
     
     if (currentNote && currentNote.id) {
       updateNoteContent(currentNote.id, htmlContent);
