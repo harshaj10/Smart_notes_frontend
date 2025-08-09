@@ -306,32 +306,109 @@ const NoteEditor: React.FC = () => {
   };
   
   // Apply autocorrection to the current word
-  const applyAutocorrection = useCallback(() => {
+  // const applyAutocorrection = useCallback(() => {
+  //   if (!autocorrectionEnabled || isApplyingRemoteUpdateRef.current) return;
+
+  //   const contentState = editorState.getCurrentContent();
+  //   const selection = editorState.getSelection();
+  //   const currentBlock = contentState.getBlockForKey(selection.getStartKey());
+  //   const blockText = currentBlock.getText();
+  //   const cursorPosition = selection.getStartOffset();
+
+  //   // Get the last word at cursor position
+  //   const wordInfo = AutocorrectionService.getLastWord(blockText, cursorPosition);
+    
+  //   if (!wordInfo.word || wordInfo.word.length < 2) return;
+
+  //   // Check if this word needs correction
+  //   if (AutocorrectionService.needsCorrection(wordInfo.word)) {
+  //     const correctedWord = AutocorrectionService.getCorrection(wordInfo.word);
+      
+  //     // Avoid correcting the same word multiple times
+  //     if (correctedWord !== wordInfo.word && correctedWord !== lastCorrectedWordRef.current) {
+  //       lastCorrectedWordRef.current = correctedWord;
+        
+  //       // Create selection for the word to be replaced
+  //       const wordSelection = SelectionState.createEmpty(currentBlock.getKey()).merge({
+  //         anchorOffset: wordInfo.startPos,
+  //         focusOffset: wordInfo.endPos,
+  //       });
+
+  //       // Replace the word with the corrected version
+  //       const newContentState = Modifier.replaceText(
+  //         contentState,
+  //         wordSelection,
+  //         correctedWord
+  //       );
+
+  //       const newEditorState = EditorState.push(
+  //         editorState,
+  //         newContentState,
+  //         'insert-characters'
+  //       );
+
+  //       // Move cursor to the end of the corrected word
+  //       const finalSelection = SelectionState.createEmpty(currentBlock.getKey()).merge({
+  //         anchorOffset: wordInfo.startPos + correctedWord.length,
+  //         focusOffset: wordInfo.startPos + correctedWord.length,
+  //       });
+
+  //       const finalEditorState = EditorState.forceSelection(newEditorState, finalSelection);
+  //       setEditorState(finalEditorState);
+
+  //       // Update the content in the backend if we have a valid note
+  //       if (currentNote && currentNote.id) {
+  //         const htmlContent = draftToHtml(convertToRaw(newContentState));
+  //         updateNoteContent(currentNote.id, htmlContent);
+  //       }
+
+  //       // Show correction notification
+  //       setSnackbarMessage(`Corrected "${wordInfo.word}" to "${correctedWord}"`);
+  //       setSnackbarOpen(true);
+  //     }
+  //   }
+  // }, [editorState, autocorrectionEnabled, currentNote, updateNoteContent]);
+
+  // Check if user has write permission
+  const canEdit = isNewNote || 
+    (currentNote && 
+     (currentNote.createdBy === userProfile?.id || 
+      (currentNote.permission && ['write', 'admin'].includes(currentNote.permission))));
+  
+  // Apply autocorrection when editor state changes
+  
+  // Apply autocorrection to a specific editor state
+  const applyAutocorrectionToEditorState = useCallback((targetEditorState: EditorState) => {
     if (!autocorrectionEnabled || isApplyingRemoteUpdateRef.current) return;
 
-    const contentState = editorState.getCurrentContent();
-    const selection = editorState.getSelection();
+    const contentState = targetEditorState.getCurrentContent();
+    const selection = targetEditorState.getSelection();
     const currentBlock = contentState.getBlockForKey(selection.getStartKey());
     const blockText = currentBlock.getText();
     const cursorPosition = selection.getStartOffset();
 
-    // Get the last word at cursor position
-    const wordInfo = AutocorrectionService.getLastWord(blockText, cursorPosition);
+    // Look for the word before the cursor (before the trigger character)
+    const textBeforeCursor = blockText.substring(0, cursorPosition - 1); // -1 to exclude the trigger char
+    const wordMatch = textBeforeCursor.match(/\b(\w+)$/);
     
-    if (!wordInfo.word || wordInfo.word.length < 2) return;
+    if (!wordMatch) return;
+    
+    const wordToCheck = wordMatch[1];
+    const wordStart = cursorPosition - 1 - wordToCheck.length;
+    const wordEnd = cursorPosition - 1;
 
     // Check if this word needs correction
-    if (AutocorrectionService.needsCorrection(wordInfo.word)) {
-      const correctedWord = AutocorrectionService.getCorrection(wordInfo.word);
+    if (AutocorrectionService.needsCorrection(wordToCheck)) {
+      const correctedWord = AutocorrectionService.getCorrection(wordToCheck);
       
       // Avoid correcting the same word multiple times
-      if (correctedWord !== wordInfo.word && correctedWord !== lastCorrectedWordRef.current) {
+      if (correctedWord !== wordToCheck && correctedWord !== lastCorrectedWordRef.current) {
         lastCorrectedWordRef.current = correctedWord;
         
         // Create selection for the word to be replaced
         const wordSelection = SelectionState.createEmpty(currentBlock.getKey()).merge({
-          anchorOffset: wordInfo.startPos,
-          focusOffset: wordInfo.endPos,
+          anchorOffset: wordStart,
+          focusOffset: wordEnd,
         });
 
         // Replace the word with the corrected version
@@ -342,19 +419,26 @@ const NoteEditor: React.FC = () => {
         );
 
         const newEditorState = EditorState.push(
-          editorState,
+          targetEditorState,
           newContentState,
           'insert-characters'
         );
 
-        // Move cursor to the end of the corrected word
+        // Move cursor to maintain position after the corrected word + trigger character
         const finalSelection = SelectionState.createEmpty(currentBlock.getKey()).merge({
-          anchorOffset: wordInfo.startPos + correctedWord.length,
-          focusOffset: wordInfo.startPos + correctedWord.length,
+          anchorOffset: wordStart + correctedWord.length + 1, // +1 for the trigger character
+          focusOffset: wordStart + correctedWord.length + 1,
         });
 
         const finalEditorState = EditorState.forceSelection(newEditorState, finalSelection);
+        
+        // Prevent recursive loops
+        isApplyingRemoteUpdateRef.current = true;
         setEditorState(finalEditorState);
+        
+        setTimeout(() => {
+          isApplyingRemoteUpdateRef.current = false;
+        }, 100);
 
         // Update the content in the backend if we have a valid note
         if (currentNote && currentNote.id) {
@@ -363,123 +447,13 @@ const NoteEditor: React.FC = () => {
         }
 
         // Show correction notification
-        setSnackbarMessage(`Corrected "${wordInfo.word}" to "${correctedWord}"`);
+        setSnackbarMessage(`Corrected "${wordToCheck}" to "${correctedWord}"`);
         setSnackbarOpen(true);
       }
     }
-  }, [editorState, autocorrectionEnabled, currentNote, updateNoteContent]);
+  }, [autocorrectionEnabled, currentNote, updateNoteContent]);
 
-  // Handle key press events for autocorrection
-  const handleKeyPress = useCallback((event: any) => {
-    if (!autocorrectionEnabled) return;
-
-    // Trigger autocorrection on space, tab, enter, or punctuation
-    if (event.key === ' ' || event.key === 'Tab' || event.key === 'Enter' || 
-        /[.,!?;:]/.test(event.key)) {
-      setTimeout(() => {
-        applyAutocorrection();
-      }, 10); // Small delay to ensure the character is inserted first
-    }
-  }, [autocorrectionEnabled, applyAutocorrection]);
-  
-  const handleEditorChange = useCallback((editorState: EditorState) => {
-    if (isApplyingRemoteUpdateRef.current) return;
-    
-    setEditorState(editorState);
-    
-    const contentState = editorState.getCurrentContent();
-    const htmlContent = draftToHtml(convertToRaw(contentState));
-    
-    if (currentNote && currentNote.id) {
-      updateNoteContent(currentNote.id, htmlContent);
-    }
-  }, [currentNote, updateNoteContent]);
-  
-  const handleSave = async () => {
-    try {
-      setIsSaving(true);
-      setSaveError(null);
-      
-      // Convert editor state to HTML
-      const contentState = editorState.getCurrentContent();
-      const htmlContent = draftToHtml(convertToRaw(contentState));
-      
-      if (isNewNote) {
-        // Use createNote instead of updateNote for new notes
-        const newNote = await createNote({ title, content: htmlContent });
-        if (newNote && newNote.id) {
-          navigate(`/notes/${newNote.id}`);
-        } else {
-          navigate('/dashboard');
-        }
-      } else if (noteId) {
-        await updateNote(noteId, { title, content: htmlContent });
-        navigate('/dashboard');
-      }
-    } catch (err) {
-      console.error('Error saving note:', err);
-      setSaveError('Failed to save note. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-  
-  const handleDelete = async () => {
-    if (!noteId || noteId === 'new') return;
-    
-    if (window.confirm('Are you sure you want to delete this note?')) {
-      try {
-        await deleteNote(noteId);
-        navigate('/dashboard');
-      } catch (err) {
-        console.error('Error deleting note:', err);
-      }
-    }
-  };
-  
-  const handleShare = () => {
-    if (noteId && noteId !== 'new') {
-      navigate(`/notes/${noteId}/share`);
-    }
-  };
-  
-  const handleViewVersions = async () => {
-    try {
-      // Here you would fetch and display the version history
-      setVersionsOpen(true);
-    } catch (err) {
-      console.error('Error fetching versions:', err);
-    }
-  };
-  
-  const handleBack = () => {
-    navigate('/dashboard');
-  };
-  
-  const handleStartRecording = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.start();
-      setIsRecording(true);
-      setRecordingStatus('Listening...');
-    } else {
-      setRecordingStatus('Speech recognition not available');
-    }
-  };
-  
-  const handleStopRecording = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
-      setRecordingStatus('');
-    }
-  };
-  
-  // Check if user has write permission
-  const canEdit = isNewNote || 
-    (currentNote && 
-     (currentNote.createdBy === userProfile?.id || 
-      (currentNote.permission && ['write', 'admin'].includes(currentNote.permission))));
-  
+  // Toolbar options for the editor
   const toolbarOptions = {
     options: ['inline', 'blockType', 'list', 'textAlign', 'colorPicker', 'link', 'history'],
     inline: {
@@ -722,6 +696,130 @@ const NoteEditor: React.FC = () => {
     setSnackbarOpen(false);
   };
   
+  // Handle save functionality
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      
+      // Convert editor state to HTML
+      const contentState = editorState.getCurrentContent();
+      const htmlContent = draftToHtml(convertToRaw(contentState));
+      
+      if (isNewNote) {
+        // Use createNote instead of updateNote for new notes
+        const newNote = await createNote({ title, content: htmlContent });
+        if (newNote && newNote.id) {
+          navigate(`/notes/${newNote.id}`);
+        } else {
+          navigate('/dashboard');
+        }
+      } else if (noteId) {
+        await updateNote(noteId, { title, content: htmlContent });
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      console.error('Error saving note:', err);
+      setSaveError('Failed to save note. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  // Handle delete functionality
+  const handleDelete = async () => {
+    if (!noteId || noteId === 'new') return;
+    
+    if (window.confirm('Are you sure you want to delete this note?')) {
+      try {
+        await deleteNote(noteId);
+        navigate('/dashboard');
+      } catch (err) {
+        console.error('Error deleting note:', err);
+      }
+    }
+  };
+  
+  // Handle share functionality
+  const handleShare = () => {
+    if (noteId && noteId !== 'new') {
+      navigate(`/notes/${noteId}/share`);
+    }
+  };
+  
+  // Handle view versions functionality
+  const handleViewVersions = async () => {
+    try {
+      // Here you would fetch and display the version history
+      setVersionsOpen(true);
+    } catch (err) {
+      console.error('Error fetching versions:', err);
+    }
+  };
+  
+  // Handle back navigation
+  const handleBack = () => {
+    navigate('/dashboard');
+  };
+  
+  // Handle start recording
+  const handleStartRecording = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.start();
+      setIsRecording(true);
+      setRecordingStatus('Listening...');
+    } else {
+      setRecordingStatus('Speech recognition not available');
+    }
+  };
+  const handleEditorChange = useCallback((newEditorState: EditorState) => {
+    if (isApplyingRemoteUpdateRef.current) return;
+    
+    // Check if autocorrection should be triggered
+    if (autocorrectionEnabled && canEdit) {
+      const currentContentState = editorState.getCurrentContent();
+      const newContentState = newEditorState.getCurrentContent();
+      
+      // Check if content actually changed (not just selection)
+      if (currentContentState !== newContentState) {
+        const currentSelection = newEditorState.getSelection();
+        const currentBlock = newContentState.getBlockForKey(currentSelection.getStartKey());
+        const blockText = currentBlock.getText();
+        const cursorPosition = currentSelection.getStartOffset();
+        
+        // Check if the last character was a trigger character
+        const lastChar = blockText.charAt(cursorPosition - 1);
+        if (lastChar === ' ' || lastChar === '.' || lastChar === ',' || lastChar === '!' || 
+            lastChar === '?' || lastChar === ';' || lastChar === ':') {
+          
+          // Apply autocorrection after a short delay
+          setTimeout(() => {
+            applyAutocorrectionToEditorState(newEditorState);
+          }, 50);
+        }
+      }
+    }
+    
+    setEditorState(newEditorState);
+    
+    const contentState = newEditorState.getCurrentContent();
+    const htmlContent = draftToHtml(convertToRaw(contentState));
+    
+    if (currentNote && currentNote.id) {
+      updateNoteContent(currentNote.id, htmlContent);
+    }
+  }, [editorState, autocorrectionEnabled, canEdit, currentNote, updateNoteContent, applyAutocorrectionToEditorState]);
+
+  
+  // Handle stop recording
+  const handleStopRecording = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+      setRecordingStatus('');
+    }
+  };
+  
   return (
     <Layout title={isNewNote ? "New Note" : title}>
       <Container maxWidth="lg">
@@ -940,12 +1038,6 @@ const NoteEditor: React.FC = () => {
               
               <Box 
                 sx={{ height: '500px', mb: 2, border: '1px solid #ddd', borderRadius: '4px', position: 'relative' }}
-                onKeyDown={(e) => {
-                  // Handle autocorrection key events
-                  if (autocorrectionEnabled && canEdit) {
-                    handleKeyPress(e);
-                  }
-                }}
               >
                 {/* AI Suggestions Component */}
                 {canEdit && aiEnabled && (
