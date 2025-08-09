@@ -59,6 +59,16 @@
       "last 1 safari version"
     ]
   },
+  "overrides": {
+    "react-draft-wysiwyg": {
+      "react": "$react",
+      "react-dom": "$react-dom"
+    },
+    "react-quill": {
+      "react": "$react",
+      "react-dom": "$react-dom"
+    }
+  },
   "description": "This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).",
   "main": "index.js",
   "keywords": [],

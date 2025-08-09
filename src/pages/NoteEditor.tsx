@@ -37,7 +37,6 @@ import {
   Lightbulb as LightbulbIcon,
   AutoAwesome as AutoAwesomeIcon,
   Title as TitleIcon,
-  Download as DownloadIcon,
   PictureAsPdf as PdfIcon
 } from '@mui/icons-material';
 import { EditorState, ContentState, convertToRaw, Modifier, SelectionState } from 'draft-js';
@@ -95,6 +94,7 @@ const NoteEditor: React.FC = () => {
   const [aiMenuAnchorEl, setAiMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [aiActionLoading, setAiActionLoading] = useState<boolean>(false);
   const [aiActionType, setAiActionType] = useState<string>('');
+  console.log(aiActionType);
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
   const [aiAnalysisResults, setAiAnalysisResults] = useState<string[]>([]);
