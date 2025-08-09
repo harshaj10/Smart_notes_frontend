@@ -77,6 +77,7 @@ const NoteEditor: React.FC = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [versionsOpen, setVersionsOpen] = useState<boolean>(false);
   const [versions, setVersions] = useState<NoteVersion[]>([]);
+  if(false)setVersions([]); // Initialize versions to empty array
   const [isNewNote, setIsNewNote] = useState<boolean>(false);
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [remoteContent, setRemoteContent] = useState<string | null>(null);
@@ -94,6 +95,7 @@ const NoteEditor: React.FC = () => {
   const [aiMenuAnchorEl, setAiMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [aiActionLoading, setAiActionLoading] = useState<boolean>(false);
   const [aiActionType, setAiActionType] = useState<string>('');
+  console.log(aiActionType);
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
   const [aiAnalysisResults, setAiAnalysisResults] = useState<string[]>([]);
