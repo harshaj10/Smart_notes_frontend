@@ -53,6 +53,9 @@ import { getSocket } from '../services/socket';
 import aiService, { AISuggestion } from '../services/ai';
 import PDFService from '../services/pdf';
 
+// Add speech recognition type declarations
+
+
 const NoteEditor: React.FC = () => {
   const { noteId } = useParams();
   const navigate = useNavigate();
@@ -65,7 +68,7 @@ const NoteEditor: React.FC = () => {
     createNote,
     loading,
     error,
-    updateNoteContent,  // Use the optimized method for content updates
+    updateNoteContent,
   } = useNotes();
   
   const [title, setTitle] = useState<string>('');
@@ -73,16 +76,13 @@ const NoteEditor: React.FC = () => {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [versionsOpen, setVersionsOpen] = useState<boolean>(false);
-
-    
-  // eslint-disable-next-line 
   const [versions, setVersions] = useState<NoteVersion[]>([]);
   const [isNewNote, setIsNewNote] = useState<boolean>(false);
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [remoteContent, setRemoteContent] = useState<string | null>(null);
   
   // Speech recognition reference
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<any>(null);
   const [recordingStatus, setRecordingStatus] = useState<string>('');
   
   // AI suggestions state
@@ -94,16 +94,94 @@ const NoteEditor: React.FC = () => {
   const [aiMenuAnchorEl, setAiMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [aiActionLoading, setAiActionLoading] = useState<boolean>(false);
   const [aiActionType, setAiActionType] = useState<string>('');
-  console.log(aiActionType);
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
   const [aiAnalysisResults, setAiAnalysisResults] = useState<string[]>([]);
   const [analysisOpen, setAnalysisOpen] = useState<boolean>(false);
   
-  // Add a flag to track if we're applying remote updates
-  
   // Flag to prevent loops when applying remote updates
   const isApplyingRemoteUpdateRef = useRef<boolean>(false);
+  
+  // Insert text at cursor function
+  const insertTextAtCursor = useCallback((text: string) => {
+    const contentState = editorState.getCurrentContent();
+    
+    // Insert the transcribed text at cursor position
+    const selectionState = editorState.getSelection();
+    const newContentState = Modifier.insertText(
+      contentState,
+      selectionState,
+      text
+    );
+    
+    const newEditorState = EditorState.push(
+      editorState,
+      newContentState,
+      'insert-characters'
+    );
+    
+    setEditorState(newEditorState);
+    
+    // Also update the content in the backend if we have a valid note
+    if (currentNote && currentNote.id) {
+      const htmlContent = draftToHtml(convertToRaw(newContentState));
+      updateNoteContent(currentNote.id, htmlContent);
+    }
+  }, [editorState, currentNote, updateNoteContent]);
+  
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        
+        recognition.onstart = () => {
+          setRecordingStatus('Listening...');
+        };
+        
+        recognition.onresult = (event: any) => {
+          let finalTranscript = '';
+          
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+            }
+          }
+          
+          if (finalTranscript) {
+            insertTextAtCursor(finalTranscript + ' ');
+          }
+        };
+        
+        recognition.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          setRecordingStatus('Error: ' + event.error);
+          setIsRecording(false);
+        };
+        
+        recognition.onend = () => {
+          setIsRecording(false);
+          setRecordingStatus('');
+        };
+        
+        recognitionRef.current = recognition;
+      } else {
+        console.warn('Speech recognition not supported');
+      }
+    }
+    
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, [insertTextAtCursor]);
   
   // Debounce AI suggestions
   const debouncedGetSuggestions = useRef(
@@ -134,7 +212,6 @@ const NoteEditor: React.FC = () => {
             const note = await fetchNote(noteId);
             setTitle(note.title);
             
-            // Convert HTML content to Draft.js editor state
             if (note.content) {
               const contentBlock = htmlToDraft(note.content);
               if (contentBlock) {
@@ -157,12 +234,10 @@ const NoteEditor: React.FC = () => {
     if (socket && noteId && noteId !== 'new') {
       socket.on('note-updated', (data: {noteId: string, userId: string, content?: string, title?: string}) => {
         if (data.noteId === noteId && data.userId !== userProfile?.id) {
-          // Store remote content for later application rather than updating immediately
           if (data.content) {
             setRemoteContent(data.content);
           }
           
-          // Update title if provided
           if (data.title) {
             setTitle(data.title);
           }
@@ -183,7 +258,6 @@ const NoteEditor: React.FC = () => {
     if (remoteContent && !isApplyingRemoteUpdateRef.current) {
       isApplyingRemoteUpdateRef.current = true;
       
-      // Convert received HTML content to Draft.js editor state
       const contentBlock = htmlToDraft(remoteContent);
       if (contentBlock) {
         const contentState = ContentState.createFromBlockArray(contentBlock.contentBlocks);
@@ -191,10 +265,8 @@ const NoteEditor: React.FC = () => {
         setEditorState(newEditorState);
       }
       
-      // Reset the remote content flag
       setRemoteContent(null);
       
-      // Allow local updates again after a short delay
       setTimeout(() => {
         isApplyingRemoteUpdateRef.current = false;
       }, 300);
@@ -205,7 +277,6 @@ const NoteEditor: React.FC = () => {
     if (currentNote) {
       setTitle(currentNote.title);
       
-      // Convert HTML content to Draft.js editor state - only if not already editing
       if (currentNote.content && !isApplyingRemoteUpdateRef.current) {
         const contentBlock = htmlToDraft(currentNote.content);
         if (contentBlock) {
@@ -217,49 +288,26 @@ const NoteEditor: React.FC = () => {
     }
   }, [currentNote]);
   
-  // Handle auto-saving
-  // const debouncedSave = useRef(
-  //   debounce(async (noteId: string, data: {title?: string, content?: string}) => {
-  //     try {
-  //       setIsSaving(true);
-  //       await updateNote(noteId, data);
-  //       setSaveError(null);
-  //     } catch (err) {
-  //       console.error('Error saving note:', err);
-  //       setSaveError('Failed to autosave. Try saving manually.');
-  //     } finally {
-  //       setIsSaving(false);
-  //     }
-  //   }, 1000)
-  // ).current;
-  
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
     
     if (noteId && noteId !== 'new') {
-      // Use the regular updateNote for title changes (not debounced as heavily)
       updateNote(noteId, { title: newTitle });
     }
   };
   
-  // First fix the type issues with handleEditorChange function and parameter types
   const handleEditorChange = useCallback((editorState: EditorState) => {
-    if (isApplyingRemoteUpdateRef.current) return; // Skip if we're applying a remote update
+    if (isApplyingRemoteUpdateRef.current) return;
     
-    // Always update the editor state for both existing and new notes
     setEditorState(editorState);
     
-    // Convert editor state to HTML for saving
     const contentState = editorState.getCurrentContent();
     const htmlContent = draftToHtml(convertToRaw(contentState));
     
-    // For existing notes, update content with debouncing
     if (currentNote && currentNote.id) {
       updateNoteContent(currentNote.id, htmlContent);
     }
-    // For new notes, we don't need to update anything in real-time, 
-    // content will be saved when the user clicks Save
   }, [currentNote, updateNoteContent]);
   
   const handleSave = async () => {
@@ -322,90 +370,6 @@ const NoteEditor: React.FC = () => {
   const handleBack = () => {
     navigate('/dashboard');
   };
-  
-  // Fix the socket event handler to properly type the data parameter
-  useEffect(() => {
-    const loadNote = async () => {
-      try {
-        if (noteId) {
-          if (noteId === 'new') {
-            setIsNewNote(true);
-            setTitle('Untitled Note');
-            setEditorState(EditorState.createEmpty());
-          } else {
-            const note = await fetchNote(noteId);
-            setTitle(note.title);
-            
-            // Convert HTML content to Draft.js editor state
-            if (note.content) {
-              const contentBlock = htmlToDraft(note.content);
-              if (contentBlock) {
-                const contentState = ContentState.createFromBlockArray(contentBlock.contentBlocks);
-                const newEditorState = EditorState.createWithContent(contentState);
-                setEditorState(newEditorState);
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error loading note:', err);
-      }
-    };
-    
-    loadNote();
-    
-    // Set up real-time updates listener
-    const socket = getSocket();
-    if (socket && noteId && noteId !== 'new') {
-      socket.on('note-updated', (data: {noteId: string, userId: string, content?: string, title?: string}) => {
-        if (data.noteId === noteId && data.userId !== userProfile?.id) {
-          // Store remote content for later application rather than updating immediately
-          if (data.content) {
-            setRemoteContent(data.content);
-          }
-          
-          // Update title if provided
-          if (data.title) {
-            setTitle(data.title);
-          }
-        }
-      });
-    }
-    
-    return () => {
-      if (socket) {
-        socket.off('note-updated');
-        socket.off('cursor-moved');
-      }
-    };
-  }, [noteId, userProfile, fetchNote]);
-  
-  // Fix the insert text function to work with EditorState
-  // const insertTextAtCursor = useCallback((text: string) => {
-  //   const contentState = editorState.getCurrentContent();
-    
-  //   // Insert the transcribed text at cursor position
-  //   const selectionState = editorState.getSelection();
-  //   const newContentState = Modifier.insertText(
-  //     contentState,
-  //     selectionState,
-  //     text
-  //   );
-    
-  //   const newEditorState = EditorState.push(
-  //     editorState,
-  //     newContentState,
-  //     'insert-characters'
-  //   );
-    
-  //   setEditorState(newEditorState);
-    
-  //   // Also update the content in the backend if we have a valid note
-  //   if (currentNote && currentNote.id) {
-  //     const htmlContent = draftToHtml(convertToRaw(newContentState));
-  //     updateNoteContent(currentNote.id, htmlContent);
-  //   }
-  // }, [editorState, currentNote, updateNoteContent]);
   
   const handleStartRecording = () => {
     if (recognitionRef.current) {
