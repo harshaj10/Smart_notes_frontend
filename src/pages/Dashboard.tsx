@@ -28,11 +28,13 @@ import {
   Share as ShareIcon, 
   NoteAdd as NoteAddIcon,
   Book as BookIcon,
-  Bookmark as BookmarkIcon
+  Bookmark as BookmarkIcon,
+  PictureAsPdf as PdfIcon
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
 import { useNotes } from '../contexts/NotesContext';
 import { format } from 'date-fns';
+import PDFService from '../services/pdf';
 
 // Array of gradient backgrounds for notes
 const noteGradients = [
@@ -104,6 +106,26 @@ const Dashboard: React.FC<DashboardProps> = ({ initialTab = 0 }) => {
   ) => {
     event.stopPropagation();
     navigate(`/notes/${noteId}/share`);
+  };
+
+  const handleDownloadPDF = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+    note: any
+  ) => {
+    event.stopPropagation();
+    try {
+      const pdfOptions = {
+        title: note.title || 'Untitled Note',
+        content: note.content || 'No content available',
+        author: note.ownerName || note.creator?.displayName || 'Unknown Author',
+        createdAt: note.createdAt
+      };
+      
+      await PDFService.generateRichFormatPDF(pdfOptions);
+    } catch (err) {
+      console.error('Error downloading PDF:', err);
+      alert('Failed to download PDF. Please try again.');
+    }
   };
 
   // Function to get a consistent color for each note based on ID
@@ -246,6 +268,17 @@ const Dashboard: React.FC<DashboardProps> = ({ initialTab = 0 }) => {
           <Divider />
           
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
+            <Tooltip title="Download PDF">
+              <IconButton
+                size="small"
+                onClick={(e) => handleDownloadPDF(e, note)}
+                aria-label="download"
+                sx={{ color: theme.palette.primary.main }}
+              >
+                <PdfIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            
             {canShare && (
               <Tooltip title="Share note">
                 <IconButton
@@ -265,7 +298,7 @@ const Dashboard: React.FC<DashboardProps> = ({ initialTab = 0 }) => {
                   size="small"
                   onClick={(e) => handleDeleteNote(e, note.id)}
                   aria-label="delete"
-                  sx={{ color: theme.palette.error.main }}
+                  sx={{ color: '#f44336' }}
                 >
                   <DeleteIcon fontSize="small" />
                 </IconButton>
