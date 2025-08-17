@@ -53,6 +53,7 @@ interface NotesContextType {
   versions: NoteVersion[];
   loading: boolean;
   error: string | null;
+  sharedNotesCount: number; // Add this new property
   fetchNotes: () => Promise<void>;
   fetchNote: (noteId: string) => Promise<NoteDetails>;
   createNote: (data: { title: string; content?: string }) => Promise<Note>;
@@ -88,6 +89,7 @@ export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
   const [versions, setVersions] = useState<NoteVersion[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [sharedNotesCount, setSharedNotesCount] = useState<number>(0); // Add this state
   const socketInitialized = useRef<boolean>(false);
   const currentNoteId = useRef<string | null>(null);
   
@@ -176,6 +178,8 @@ export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
       setError(null);
       const data = await notesAPI.getAllNotes();
       setNotes(data);
+      // Update shared notes count
+      setSharedNotesCount(data.shared.length);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch notes');
       console.error('Error fetching notes:', err);
@@ -428,6 +432,7 @@ export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
     versions,
     loading,
     error,
+    sharedNotesCount, // Add this to the context value
     fetchNotes,
     fetchNote,
     createNote,

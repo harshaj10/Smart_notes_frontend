@@ -42,6 +42,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotes } from '../contexts/NotesContext'; // Add this import
 
 const drawerWidth = 250;
 
@@ -90,6 +91,7 @@ const AppLogo = () => {
 const Layout = ({ children, title = 'THINKSYNC.AI' }: LayoutProps) => {
   const theme = useTheme();
   const { userProfile, signOut } = useAuth();
+  const { sharedNotesCount } = useNotes(); // Add this hook
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(true);
@@ -200,6 +202,14 @@ const Layout = ({ children, title = 'THINKSYNC.AI' }: LayoutProps) => {
                 <Tooltip title="Notifications">
                   <IconButton color="inherit" sx={{ mr: 1 }}>
                     <Badge badgeContent={0} color="error">
+                      <NotificationsIcon />
+                    </Badge>
+                  </IconButton>
+                </Tooltip>
+                
+                <Tooltip title="Shared Notes">
+                  <IconButton color="inherit" sx={{ mr: 1 }}>
+                    <Badge badgeContent={sharedNotesCount} color="error">
                       <NotificationsIcon />
                     </Badge>
                   </IconButton>
