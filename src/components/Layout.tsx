@@ -469,7 +469,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title = 'THINKSYNC.AI' }) => 
                     />
                     {item.text === 'Shared Notes' && (
                       <Chip 
-                        label="0" 
+                        label={sharedNotesCount}
                         size="small" 
                         color="primary" 
                         sx={{ 
