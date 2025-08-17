@@ -394,6 +394,8 @@ export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
       await notesAPI.shareNote(noteId, data);
       // Refresh shared notes count for both users involved
       await refreshSharedNotesCount();
+      // Also refresh notes list to update any shared status
+      await fetchNotes();
     } catch (err: any) {
       setError(err.message || 'Failed to share note');
       console.error('Error sharing note:', err);
@@ -410,6 +412,8 @@ export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
       await notesAPI.revokeAccess(noteId, userId);
       // Refresh shared notes count after revoking access
       await refreshSharedNotesCount();
+      // Also refresh notes list to update any shared status
+      await fetchNotes();
     } catch (err: any) {
       setError(err.message || 'Failed to revoke access');
       console.error('Error revoking access:', err);

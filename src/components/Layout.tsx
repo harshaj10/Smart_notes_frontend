@@ -39,6 +39,7 @@ import {
   BookmarkBorder as BookmarkBorderIcon,
   LightbulbOutlined as LightbulbOutlinedIcon,
   Star as StarIcon,
+  People as PeopleIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -88,7 +89,7 @@ const AppLogo = () => {
   );
 };
 
-const Layout = ({ children, title = 'THINKSYNC.AI' }: LayoutProps) => {
+const Layout: React.FC<LayoutProps> = ({ children, title = 'THINKSYNC.AI' }) => {
   const theme = useTheme();
   const { userProfile, signOut } = useAuth();
   const { sharedNotesCount, refreshSharedNotesCount } = useNotes();
@@ -116,6 +117,13 @@ const Layout = ({ children, title = 'THINKSYNC.AI' }: LayoutProps) => {
       }, 30000);
 
       return () => clearInterval(interval);
+    }
+  }, [userProfile, refreshSharedNotesCount]);
+
+  // Refresh shared notes count when component mounts and when userProfile changes
+  useEffect(() => {
+    if (userProfile) {
+      refreshSharedNotesCount();
     }
   }, [userProfile, refreshSharedNotesCount]);
 
@@ -475,6 +483,20 @@ const Layout = ({ children, title = 'THINKSYNC.AI' }: LayoutProps) => {
                 </ListItem>
               );
             })}
+            <ListItem  onClick={() => navigate('/shared-notes')}>
+              <ListItemIcon>
+                <PeopleIcon />
+              </ListItemIcon>
+              <ListItemText primary="Shared Notes" />
+              {sharedNotesCount > 0 && (
+                <Chip 
+                  label={sharedNotesCount} 
+                  size="small" 
+                  color="primary" 
+                  sx={{ ml: 1 }}
+                />
+              )}
+            </ListItem>
           </List>
           
           <Divider sx={{ my: 1.5 }} />
