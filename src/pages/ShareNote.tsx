@@ -26,7 +26,8 @@ import {
   DialogContentText,
   DialogActions,
   ListItemButton,
-  Snackbar
+  Snackbar,
+  Chip
 } from '@mui/material';
 import {
   PersonAdd as PersonAddIcon,
@@ -45,6 +46,7 @@ interface Collaborator {
   displayName: string;
   photoURL?: string;
   permission: Permission;
+  sharedNotesCount?: number; // Add this new property
 }
 
 const ShareNote: React.FC = () => {
@@ -65,7 +67,19 @@ const ShareNote: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<Collaborator | null>(null);
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
+  const [collaboratorCounts, setCollaboratorCounts] = useState<{[key: string]: number}>({});
   
+  // Add function to get shared notes count for each collaborator
+  const getSharedNotesCount = async (userId: string): Promise<number> => {
+    try {
+      const response = await usersAPI.getSharedNotesCount(userId);
+      return response.count || 0;
+    } catch (err) {
+      console.error('Error getting shared notes count:', err);
+      return 0;
+    }
+  };
+
   useEffect(() => {
     const loadNote = async () => {
       try {
@@ -83,6 +97,13 @@ const ShareNote: React.FC = () => {
           console.log('Collaborator data:', collabData);
           setOwner(collabData.owner);
           setCollaborators(collabData.collaborators || []);
+          
+          // Load shared notes count for each collaborator
+          const counts: {[key: string]: number} = {};
+          for (const collab of collabData.collaborators || []) {
+            counts[collab.id] = await getSharedNotesCount(collab.id);
+          }
+          setCollaboratorCounts(counts);
         }
       } catch (err: any) {
         console.error('Error loading note:', err);
@@ -140,6 +161,15 @@ const ShareNote: React.FC = () => {
       console.log('Updated collaborator data:', collabData);
       setCollaborators(collabData.collaborators || []);
       
+      // Update counts for new collaborators
+      const counts = { ...collaboratorCounts };
+      for (const collab of collabData.collaborators || []) {
+        if (!counts[collab.id]) {
+          counts[collab.id] = await getSharedNotesCount(collab.id);
+        }
+      }
+      setCollaboratorCounts(counts);
+      
       setSuccess(`Note shared with ${email} successfully`);
       setEmail('');
       
@@ -174,6 +204,11 @@ const ShareNote: React.FC = () => {
       
       // Update collaborators list
       setCollaborators(prev => prev.filter(c => c.id !== selectedUser.id));
+      
+      // Remove from counts
+      const newCounts = { ...collaboratorCounts };
+      delete newCounts[selectedUser.id];
+      setCollaboratorCounts(newCounts);
       
       setSuccess(`Access removed for ${selectedUser.displayName}`);
       
@@ -356,7 +391,17 @@ const ShareNote: React.FC = () => {
                       <Avatar src={collab.photoURL}>{collab.displayName.charAt(0)}</Avatar>
                     </ListItemAvatar>
                     <ListItemText
-                      primary={collab.displayName}
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography>{collab.displayName}</Typography>
+                          <Chip 
+                            label={`${collaboratorCounts[collab.id] || 0} shared notes`}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        </Box>
+                      }
                       secondary={`${collab.permission.charAt(0).toUpperCase()}${collab.permission.slice(1)} access`}
                     />
                     <ListItemSecondaryAction>

@@ -103,6 +103,10 @@ export const usersAPI = {
     const response = await apiInstance.get(`/users/notes/${noteId}/collaborators`);
     return response.data;
   },
+  getSharedNotesCount: async (userId: string) => {
+    const response = await apiInstance.get(`/users/${userId}/shared-notes-count`);
+    return response.data;
+  },
 };
 
 // Named export for the API instance
