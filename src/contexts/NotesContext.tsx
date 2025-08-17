@@ -66,6 +66,7 @@ interface NotesContextType {
   setCurrentNote: (note: NoteDetails | null) => void;
   updateNoteContent: (noteId: string, content: string) => void;
   updateCurrentNoteContent: (content: string) => void;
+  refreshSharedNotesCount: () => Promise<void>; // Add this
 }
 
 const NotesContext = createContext<NotesContextType | undefined>(undefined);
@@ -89,7 +90,7 @@ export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
   const [versions, setVersions] = useState<NoteVersion[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [sharedNotesCount, setSharedNotesCount] = useState<number>(0); // Add this state
+  const [sharedNotesCount, setSharedNotesCount] = useState<number>(0);
   const socketInitialized = useRef<boolean>(false);
   const currentNoteId = useRef<string | null>(null);
   
@@ -170,6 +171,18 @@ export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
     // eslint-disable-next-line
   }, [userProfile]); // fetchNotes is defined with useCallback, so it's stable
 
+  // Add function to fetch live shared notes count
+  const fetchSharedNotesCount = useCallback(async (): Promise<void> => {
+    if (!userProfile?.id) return;
+    
+    try {
+      const response = await notesAPI.getSharedNotesCount(userProfile.id);
+      setSharedNotesCount(response.count || 0);
+    } catch (err) {
+      console.error('Error fetching shared notes count:', err);
+    }
+  }, [userProfile?.id]);
+
   const fetchNotes = useCallback(async (): Promise<void> => {
     if (!currentUser) return;
     
@@ -178,15 +191,28 @@ export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
       setError(null);
       const data = await notesAPI.getAllNotes();
       setNotes(data);
-      // Update shared notes count
-      setSharedNotesCount(data.shared.length);
+      // Fetch live count instead of using local state
+      await fetchSharedNotesCount();
     } catch (err: any) {
       setError(err.message || 'Failed to fetch notes');
       console.error('Error fetching notes:', err);
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, fetchSharedNotesCount]);
+
+  // Fetch shared notes count when user profile changes
+  useEffect(() => {
+    if (userProfile) {
+      fetchNotes();
+      fetchSharedNotesCount();
+    }
+  }, [userProfile, fetchNotes, fetchSharedNotesCount]);
+
+  // Add function to refresh shared notes count
+  const refreshSharedNotesCount = useCallback(async (): Promise<void> => {
+    await fetchSharedNotesCount();
+  }, [fetchSharedNotesCount]);
 
   const fetchNote = useCallback(async (noteId: string): Promise<NoteDetails> => {
     if (currentNote && currentNote.id === noteId) {
@@ -366,6 +392,8 @@ export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
       await notesAPI.shareNote(noteId, data);
+      // Refresh shared notes count for both users involved
+      await refreshSharedNotesCount();
     } catch (err: any) {
       setError(err.message || 'Failed to share note');
       console.error('Error sharing note:', err);
@@ -380,6 +408,8 @@ export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
       await notesAPI.revokeAccess(noteId, userId);
+      // Refresh shared notes count after revoking access
+      await refreshSharedNotesCount();
     } catch (err: any) {
       setError(err.message || 'Failed to revoke access');
       console.error('Error revoking access:', err);
@@ -432,7 +462,7 @@ export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
     versions,
     loading,
     error,
-    sharedNotesCount, // Add this to the context value
+    sharedNotesCount,
     fetchNotes,
     fetchNote,
     createNote,
@@ -444,7 +474,8 @@ export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
     fetchVersion,
     setCurrentNote,
     updateNoteContent,
-    updateCurrentNoteContent
+    updateCurrentNoteContent,
+    refreshSharedNotesCount
   };
 
   return (

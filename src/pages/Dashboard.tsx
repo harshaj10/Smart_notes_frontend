@@ -56,7 +56,7 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ initialTab = 0 }) => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { notes, loading, error, fetchNotes, deleteNote } = useNotes();
+  const { notes, loading, error, fetchNotes, deleteNote, refreshSharedNotesCount } = useNotes();
   const [tabValue, setTabValue] = useState<number>(initialTab);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
 
@@ -73,6 +73,17 @@ const Dashboard: React.FC<DashboardProps> = ({ initialTab = 0 }) => {
     }, 300);
     return () => clearTimeout(timer);
   }, [fetchNotes]);
+
+  // Add listener for navbar navigation to shared tab
+  useEffect(() => {
+    const handleNavigateToShared = () => {
+      setTabValue(1);
+      refreshSharedNotesCount();
+    };
+
+    window.addEventListener('navigate-to-shared', handleNavigateToShared);
+    return () => window.removeEventListener('navigate-to-shared', handleNavigateToShared);
+  }, [refreshSharedNotesCount]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);

@@ -87,6 +87,10 @@ export const notesAPI = {
     const response = await apiInstance.get(`/notes/${noteId}/versions/${versionNumber}`);
     return response.data;
   },
+  getSharedNotesCount: async (userId: string) => {
+    const response = await apiInstance.get(`/users/${userId}/shared-notes-count`);
+    return response.data;
+  },
 };
 
 // Users API

@@ -42,7 +42,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useNotes } from '../contexts/NotesContext'; // Add this import
+import { useNotes } from '../contexts/NotesContext';
 
 const drawerWidth = 250;
 
@@ -91,7 +91,7 @@ const AppLogo = () => {
 const Layout = ({ children, title = 'THINKSYNC.AI' }: LayoutProps) => {
   const theme = useTheme();
   const { userProfile, signOut } = useAuth();
-  const { sharedNotesCount } = useNotes(); // Add this hook
+  const { sharedNotesCount, refreshSharedNotesCount } = useNotes();
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(true);
@@ -106,6 +106,18 @@ const Layout = ({ children, title = 'THINKSYNC.AI' }: LayoutProps) => {
     }, 300);
     return () => clearTimeout(timer);
   }, []);
+
+  // Add effect to periodically refresh shared notes count
+  useEffect(() => {
+    if (userProfile) {
+      // Refresh count every 30 seconds
+      const interval = setInterval(() => {
+        refreshSharedNotesCount();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [userProfile, refreshSharedNotesCount]);
 
   const handleDrawerToggle = () => {
     setDrawerOpen(!drawerOpen);
@@ -207,8 +219,21 @@ const Layout = ({ children, title = 'THINKSYNC.AI' }: LayoutProps) => {
                   </IconButton>
                 </Tooltip>
                 
-                <Tooltip title="Shared Notes">
-                  <IconButton color="inherit" sx={{ mr: 1 }}>
+                <Tooltip title={`Shared Notes (${sharedNotesCount})`}>
+                  <IconButton 
+                    color="inherit" 
+                    sx={{ mr: 1 }}
+                    onClick={() => {
+                      refreshSharedNotesCount();
+                      // Navigate to shared notes tab
+                      if (location.pathname === '/dashboard') {
+                        // Trigger tab change to shared notes
+                        window.dispatchEvent(new CustomEvent('navigate-to-shared'));
+                      } else {
+                        navigate('/shared');
+                      }
+                    }}
+                  >
                     <Badge badgeContent={sharedNotesCount} color="error">
                       <NotificationsIcon />
                     </Badge>

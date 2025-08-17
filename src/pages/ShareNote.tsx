@@ -46,13 +46,13 @@ interface Collaborator {
   displayName: string;
   photoURL?: string;
   permission: Permission;
-  sharedNotesCount?: number; // Add this new property
+  sharedNotesCount?: number;
 }
 
 const ShareNote: React.FC = () => {
   const { noteId } = useParams();
   const navigate = useNavigate();
-  const { fetchNote, shareNote, revokeAccess } = useNotes();
+  const { fetchNote, shareNote, revokeAccess, refreshSharedNotesCount } = useNotes();
   
   const [note, setNote] = useState<NoteDetails | null>(null);
   const [email, setEmail] = useState<string>('');
@@ -69,7 +69,6 @@ const ShareNote: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [collaboratorCounts, setCollaboratorCounts] = useState<{[key: string]: number}>({});
   
-  // Add function to get shared notes count for each collaborator
   const getSharedNotesCount = async (userId: string): Promise<number> => {
     try {
       const response = await usersAPI.getSharedNotesCount(userId);
@@ -91,14 +90,12 @@ const ShareNote: React.FC = () => {
           setNote(noteData);
           console.log('Note data loaded:', noteData);
           
-          // Get the collaborators
           console.log('Fetching collaborators...');
           const collabData = await usersAPI.getCollaborators(noteId);
           console.log('Collaborator data:', collabData);
           setOwner(collabData.owner);
           setCollaborators(collabData.collaborators || []);
           
-          // Load shared notes count for each collaborator
           const counts: {[key: string]: number} = {};
           for (const collab of collabData.collaborators || []) {
             counts[collab.id] = await getSharedNotesCount(collab.id);
@@ -121,7 +118,6 @@ const ShareNote: React.FC = () => {
     setError(null);
     setSuccess(null);
     
-    // Only search if email is at least 3 characters
     if (e.target.value.length >= 3) {
       searchUsers(e.target.value);
     } else {
@@ -156,12 +152,10 @@ const ShareNote: React.FC = () => {
       console.log(`Sharing note ${noteId} with ${email}, permission: ${permission}`);
       await shareNote(noteId, { email, permission });
       
-      // Refresh collaborators list
       const collabData = await usersAPI.getCollaborators(noteId);
       console.log('Updated collaborator data:', collabData);
       setCollaborators(collabData.collaborators || []);
       
-      // Update counts for new collaborators
       const counts = { ...collaboratorCounts };
       for (const collab of collabData.collaborators || []) {
         if (!counts[collab.id]) {
@@ -170,10 +164,11 @@ const ShareNote: React.FC = () => {
       }
       setCollaboratorCounts(counts);
       
+      await refreshSharedNotesCount();
+      
       setSuccess(`Note shared with ${email} successfully`);
       setEmail('');
       
-      // Show snackbar
       setSnackbarMessage(`Note shared with ${email} successfully`);
       setSnackbarOpen(true);
     } catch (err: any) {
@@ -183,12 +178,13 @@ const ShareNote: React.FC = () => {
       setLoading(false);
     }
   };
-  
+
+  // Add the missing openRemoveDialog function
   const openRemoveDialog = (collaborator: Collaborator) => {
     setSelectedUser(collaborator);
     setRemoveDialog(true);
   };
-  
+
   const handleRemoveAccess = async () => {
     if (!selectedUser || !noteId) {
       setRemoveDialog(false);
@@ -202,17 +198,16 @@ const ShareNote: React.FC = () => {
       console.log(`Removing access for user ${selectedUser.id} from note ${noteId}`);
       await revokeAccess(noteId, selectedUser.id);
       
-      // Update collaborators list
       setCollaborators(prev => prev.filter(c => c.id !== selectedUser.id));
       
-      // Remove from counts
       const newCounts = { ...collaboratorCounts };
       delete newCounts[selectedUser.id];
       setCollaboratorCounts(newCounts);
       
+      await refreshSharedNotesCount();
+      
       setSuccess(`Access removed for ${selectedUser.displayName}`);
       
-      // Show snackbar
       setSnackbarMessage(`Access removed for ${selectedUser.displayName}`);
       setSnackbarOpen(true);
     } catch (err: any) {
@@ -240,7 +235,6 @@ const ShareNote: React.FC = () => {
     const inviteLink = `${window.location.origin}/notes/${noteId}`;
     navigator.clipboard.writeText(inviteLink);
     
-    // Show snackbar
     setSnackbarMessage('Invitation link copied to clipboard');
     setSnackbarOpen(true);
   };
@@ -340,7 +334,6 @@ const ShareNote: React.FC = () => {
               </Button>
             </Box>
             
-            {/* Search Results Dropdown */}
             {searchResults.length > 0 && (
               <Paper elevation={3} sx={{ mt: -2, mb: 3, maxHeight: 200, overflow: 'auto' }}>
                 <List dense>
@@ -367,7 +360,6 @@ const ShareNote: React.FC = () => {
               People with access
             </Typography>
             
-            {/* Owner */}
             {owner && (
               <List>
                 <ListItem>
@@ -382,7 +374,6 @@ const ShareNote: React.FC = () => {
               </List>
             )}
             
-            {/* Collaborators */}
             {collaborators.length > 0 ? (
               <List sx={{ bgcolor: 'background.paper', borderRadius: 1 }}>
                 {collaborators.map((collab) => (
@@ -421,7 +412,6 @@ const ShareNote: React.FC = () => {
         </Paper>
       </Container>
       
-      {/* Confirmation Dialog */}
       <Dialog
         open={removeDialog}
         onClose={() => setRemoveDialog(false)}
@@ -442,7 +432,6 @@ const ShareNote: React.FC = () => {
         </DialogActions>
       </Dialog>
       
-      {/* Success/Error Snackbar */}
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={6000}
