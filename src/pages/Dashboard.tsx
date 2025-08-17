@@ -35,6 +35,7 @@ import Layout from '../components/Layout';
 import { useNotes } from '../contexts/NotesContext';
 import { format } from 'date-fns';
 import PDFService from '../services/pdf';
+import { useAuth } from '../contexts/AuthContext';
 
 // Array of gradient backgrounds for notes
 const noteGradients = [
@@ -56,6 +57,7 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ initialTab = 0 }) => {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { userProfile } = useAuth();
   const { notes, loading, error, fetchNotes, deleteNote, refreshSharedNotesCount } = useNotes();
   const [tabValue, setTabValue] = useState<number>(initialTab);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
@@ -125,10 +127,24 @@ const Dashboard: React.FC<DashboardProps> = ({ initialTab = 0 }) => {
   ) => {
     event.stopPropagation();
     try {
+      // Determine the author based on note ownership and available data
+      let author = 'Unknown Author';
+      
+      if (note.createdBy === userProfile?.id) {
+        // If current user is the owner, use their display name
+        author = userProfile?.displayName || 'Unknown Author';
+      } else if (note.ownerName) {
+        // For shared notes, use the owner name if available
+        author = note.ownerName;
+      } else if (note.creator?.displayName) {
+        // Fallback to creator display name if available
+        author = note.creator.displayName;
+      }
+      
       const pdfOptions = {
         title: note.title || 'Untitled Note',
         content: note.content || 'No content available',
-        author: note.ownerName || note.creator?.displayName || 'Unknown Author',
+        author: author,
         createdAt: note.createdAt
       };
       
