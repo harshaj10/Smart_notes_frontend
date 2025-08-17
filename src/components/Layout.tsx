@@ -483,7 +483,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title = 'THINKSYNC.AI' }) => 
                 </ListItem>
               );
             })}
-            <ListItem  onClick={() => navigate('/shared-notes')}>
+            {/* <ListItem  onClick={() => navigate('/shared-notes')}>
               <ListItemIcon>
                 <PeopleIcon />
               </ListItemIcon>
@@ -496,7 +496,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title = 'THINKSYNC.AI' }) => 
                   sx={{ ml: 1 }}
                 />
               )}
-            </ListItem>
+            </ListItem> */}
           </List>
           
           <Divider sx={{ my: 1.5 }} />
