@@ -218,14 +218,14 @@ const Layout: React.FC<LayoutProps> = ({ children, title = 'THINKSYNC.AI' }) => 
                     }}
                   />
                 </Stack>
-                
+{/*                 
                 <Tooltip title="Notifications">
                   <IconButton color="inherit" sx={{ mr: 1 }}>
                     <Badge badgeContent={0} color="error">
                       <NotificationsIcon />
                     </Badge>
                   </IconButton>
-                </Tooltip>
+                </Tooltip> */}
                 
                 <Tooltip title={`Shared Notes (${sharedNotesCount})`}>
                   <IconButton 

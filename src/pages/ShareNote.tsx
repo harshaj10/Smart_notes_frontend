@@ -155,7 +155,9 @@ const ShareNote: React.FC = () => {
       const collabData = await usersAPI.getCollaborators(noteId);
       console.log('Updated collaborator data:', collabData);
       setCollaborators(collabData.collaborators || []);
+      setOwner(collabData.owner);
       
+      // Update collaborator counts
       const counts = { ...collaboratorCounts };
       for (const collab of collabData.collaborators || []) {
         if (!counts[collab.id]) {
@@ -166,10 +168,10 @@ const ShareNote: React.FC = () => {
       
       await refreshSharedNotesCount();
       
-      setSuccess(`Note shared with ${email} successfully`);
+      setSuccess(`Note shared with ${email} successfully! They will receive an email notification.`);
       setEmail('');
       
-      setSnackbarMessage(`Note shared with ${email} successfully`);
+      setSnackbarMessage(`Note shared with ${email} successfully! Email notification sent.`);
       setSnackbarOpen(true);
     } catch (err: any) {
       console.error('Error sharing note:', err);
