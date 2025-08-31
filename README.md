@@ -302,6 +302,7 @@ Smart Notes/
 - **Real-time Batching**: Grouped Socket.io updates for better performance
 - **Caching Strategy**: Smart caching for frequently accessed data
 
+
 ---
 
 **Smart Notes** - Where intelligent note-taking meets seamless collaboration.
